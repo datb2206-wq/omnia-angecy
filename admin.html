@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Quản trị Blog · Omnia Agency</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: { colors: {
+  ink: { 900:'#100a1f', 950:'#08040f' },
+  neon: { 400:'#a78bfa', 500:'#8b5cf6', 600:'#7c3aed', 700:'#6d28d9' },
+  glow: { 400:'#c084fc', 500:'#a855f7' }
+}}}}
+</script>
+<script>
+/* ==================== CẤU HÌNH (điền 1 lần) ====================
+   SUPABASE_URL / SUPABASE_ANON_KEY: lấy trong Supabase → Project Settings → API
+   (dán GIỐNG HỆT 2 giá trị này vào file index của web, mục BLOG_DB)
+   SITE_URL: địa chỉ web, dùng để tạo link bài cho Telegram
+   ============================================================== */
+const CONFIG = {
+  SUPABASE_URL: 'https://lcxttcrqzsineaptddwp.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_3Hs5pypqjPH0NNu6YknMJg_kIE2RZVi',
+  SITE_URL: 'https://www.omniaads.net/'
+};
+</script>
+<style>
+  body { background: radial-gradient(ellipse at 10% 0%, rgba(124,58,237,.16), transparent 45%), #08040f; }
+  .ed { color:#cbd5e1; font-size:16px; line-height:1.75; outline:none; min-height:420px; }
+  .ed:empty::before { content: attr(data-placeholder); color:#64748b; }
+  .ed p { margin:0 0 1em; }
+  .ed h2 { color:#fff; font-weight:800; font-size:1.5rem; margin:1.4em 0 .6em; }
+  .ed h3 { color:#fff; font-weight:700; font-size:1.2rem; margin:1.2em 0 .5em; }
+  .ed ul { list-style:disc; padding-left:1.4em; margin:0 0 1em; }
+  .ed ol { list-style:decimal; padding-left:1.4em; margin:0 0 1em; }
+  .ed li { margin:.3em 0; }
+  .ed b, .ed strong { color:#fff; }
+  .ed a { color:#a78bfa; text-decoration:underline; }
+  .ed img { max-width:100%; border-radius:12px; margin:1em 0; }
+  .ed .tip { margin:1em 0; padding:14px 16px; border-radius:12px; border:1px solid rgba(139,92,246,.45); background:rgba(139,92,246,.12); color:#e9d5ff; }
+  .ed .table-wrap { overflow-x:auto; margin:0 0 1em; }
+  .ed table { width:100%; border-collapse:collapse; font-size:15px; }
+  .ed th, .ed td { border:1px solid rgba(255,255,255,.15); padding:8px 10px; text-align:left; vertical-align:top; min-width:80px; }
+  .ed th { background:rgba(139,92,246,.22); color:#fff; }
+  .tb { padding:6px 10px; border-radius:8px; font-size:13px; font-weight:600; color:#e2e8f0; white-space:nowrap; }
+  .tb:hover { background:rgba(255,255,255,.08); }
+  .inp { width:100%; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:10px 14px; color:#fff; outline:none; }
+  .inp:focus { border-color:#8b5cf6; box-shadow:0 0 0 3px rgba(139,92,246,.25); }
+  .lbl { display:block; font-size:13px; font-weight:600; color:#cbd5e1; margin-bottom:6px; }
+  .hint { font-size:12px; color:#64748b; margin-top:4px; }
+</style>
+</head>
+<body class="text-slate-300 font-sans antialiased min-h-screen">
+
+<!-- Thiếu cấu hình -->
+<div id="setupView" class="hidden max-w-lg mx-auto px-4 py-24 text-center">
+  <h1 class="text-2xl font-extrabold text-white">Chưa kết nối cơ sở dữ liệu</h1>
+  <p class="mt-3 text-slate-400">Mở file <b class="text-white">admin.html</b>, tìm mục <code class="text-neon-400">CONFIG</code> ở đầu file và điền <code class="text-neon-400">SUPABASE_URL</code>, <code class="text-neon-400">SUPABASE_ANON_KEY</code>.</p>
+</div>
+
+<!-- Đăng nhập -->
+<div id="loginView" class="hidden min-h-screen grid place-items-center px-4">
+  <form id="loginForm" class="w-full max-w-sm rounded-3xl border border-neon-500/30 bg-ink-900/80 p-8 shadow-2xl shadow-neon-600/20">
+    <div class="flex items-center gap-3">
+      <span class="w-10 h-10 rounded-xl bg-neon-600 grid place-items-center text-white text-lg">✍</span>
+      <div><p class="font-bold text-white">Omnia Agency</p><p class="text-xs text-slate-400">Quản trị Blog</p></div>
+    </div>
+    <h1 class="mt-7 text-2xl font-extrabold text-white">Đăng nhập</h1>
+    <label class="lbl mt-6" for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" required class="inp">
+    <label class="lbl mt-4" for="password">Mật khẩu</label>
+    <input id="password" type="password" autocomplete="current-password" required class="inp">
+    <p id="loginErr" class="hidden mt-4 text-sm text-red-400"></p>
+    <button id="loginBtn" class="mt-6 w-full bg-neon-600 hover:bg-neon-500 text-white font-semibold py-3 rounded-xl shadow-lg shadow-neon-600/30">Đăng nhập</button>
+  </form>
+</div>
+
+<!-- Trang quản trị -->
+<div id="appView" class="hidden">
+  <header class="sticky top-0 z-30 border-b border-white/10 bg-ink-950/85 backdrop-blur">
+    <div class="max-w-[1400px] mx-auto px-4 h-16 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <span class="w-9 h-9 shrink-0 rounded-xl bg-neon-600 grid place-items-center text-white">✍</span>
+        <div class="min-w-0"><p class="font-bold text-white leading-tight">Quản trị Blog</p><p id="whoami" class="text-xs text-slate-400 truncate"></p></div>
+      </div>
+      <div class="flex items-center gap-2">
+        <a id="siteLink" target="_blank" rel="noopener" class="hidden sm:inline-block text-sm font-semibold text-slate-300 hover:text-white px-3 py-2 rounded-lg hover:bg-white/5">↗ Xem web</a>
+        <button id="logoutBtn" class="text-sm font-semibold border border-white/15 hover:bg-white/10 text-white px-3 py-2 rounded-lg">Đăng xuất</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="max-w-[1400px] mx-auto px-4 py-6 grid lg:grid-cols-[320px_1fr] gap-6">
+    <!-- Danh sách bài -->
+    <aside class="lg:sticky lg:top-[88px] lg:self-start">
+      <button id="newBtn" class="w-full bg-neon-600 hover:bg-neon-500 text-white font-semibold py-3 rounded-xl shadow-lg shadow-neon-600/30">+ Viết bài mới</button>
+      <input id="search" placeholder="Tìm bài…" class="inp mt-4 text-sm">
+      <div id="postList" class="mt-3 space-y-2 lg:max-h-[calc(100vh-220px)] overflow-y-auto pr-1"></div>
+    </aside>
+
+    <!-- Soạn bài -->
+    <main>
+      <div id="emptyState" class="rounded-3xl border border-dashed border-white/15 p-12 text-center text-slate-400">
+        <p class="text-4xl">📝</p>
+        <p class="mt-3">Chọn một bài bên trái để sửa, hoặc bấm <b class="text-white">+ Viết bài mới</b>.</p>
+      </div>
+
+      <form id="editor" class="hidden" autocomplete="off" onsubmit="return false">
+        <!-- Thanh hành động -->
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2 min-w-0">
+            <span id="statusChip" class="text-xs font-bold rounded-full px-3 py-1"></span>
+            <span id="dirtyChip" class="hidden text-xs text-amber-300">● Chưa lưu</span>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" id="viewBtn" class="hidden text-sm font-semibold border border-white/15 hover:bg-white/10 text-white px-4 py-2.5 rounded-xl">👁 Xem trên web</button>
+            <button type="button" id="deleteBtn" class="hidden text-sm font-semibold border border-red-500/40 text-red-300 hover:bg-red-500/10 px-4 py-2.5 rounded-xl">Xóa</button>
+            <button type="button" id="draftBtn" class="text-sm font-semibold border border-white/15 hover:bg-white/10 text-white px-4 py-2.5 rounded-xl">Lưu nháp</button>
+            <button type="button" id="publishBtn" class="text-sm font-semibold bg-neon-600 hover:bg-neon-500 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-neon-600/30">🚀 Đăng lên web</button>
+          </div>
+        </div>
+
+        <!-- Thông tin chung -->
+        <section class="mt-5 rounded-2xl border border-white/10 bg-white/[.03] p-5 grid md:grid-cols-[1fr_260px] gap-5">
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div class="sm:col-span-2">
+              <label class="lbl" for="f_id">Đường dẫn bài (link)</label>
+              <div class="flex items-stretch rounded-xl border border-white/12 bg-white/[.04] overflow-hidden focus-within:border-neon-500">
+                <span class="hidden sm:flex items-center px-3 text-xs text-slate-500 border-r border-white/10 whitespace-nowrap" id="idPrefix"></span>
+                <input id="f_id" class="flex-1 min-w-0 bg-transparent px-3 py-2.5 text-white outline-none" placeholder="vd: cach-chon-offer-cpo">
+              </div>
+              <p class="hint">Tự tạo theo tiêu đề. Chỉ dùng chữ thường không dấu, số và dấu gạch ngang.</p>
+            </div>
+            <div><label class="lbl" for="f_date">Ngày đăng</label><input id="f_date" type="date" class="inp"></div>
+            <div><label class="lbl" for="f_cat">Chủ đề</label>
+              <select id="f_cat" class="inp">
+                <option value="meta">Meta Ads</option><option value="tiktok">TikTok Ads</option><option value="google">Google Ads</option>
+                <option value="pay">Thanh toán (Payments)</option><option value="creative">Creative (Creatives)</option>
+              </select></div>
+            <div><label class="lbl" for="f_min">Số phút đọc</label><input id="f_min" type="number" min="1" max="60" class="inp" placeholder="Để trống = tự tính"></div>
+            <label class="flex items-center gap-3 rounded-xl border border-white/12 bg-white/[.04] px-4 py-2.5 cursor-pointer self-end">
+              <input id="f_featured" type="checkbox" class="w-4 h-4 accent-violet-500">
+              <span class="text-sm text-white font-semibold">★ Bài nổi bật</span><span class="text-xs text-slate-500">(khung lớn đầu Blog)</span>
+            </label>
+          </div>
+          <div>
+            <span class="lbl">Ảnh bìa</span>
+            <div id="coverBox" class="relative aspect-[16/9] rounded-xl border border-white/12 bg-white/[.04] overflow-hidden grid place-items-center text-xs text-slate-500 text-center px-3"></div>
+            <div class="mt-2 flex gap-2">
+              <label class="flex-1 text-center text-sm font-semibold bg-white/10 hover:bg-white/15 text-white px-3 py-2 rounded-lg cursor-pointer">⬆ Tải ảnh<input id="coverFile" type="file" accept="image/*" class="hidden"></label>
+              <button type="button" id="coverClear" class="text-sm font-semibold border border-white/15 hover:bg-white/10 text-slate-300 px-3 py-2 rounded-lg">Bỏ ảnh</button>
+            </div>
+            <input id="f_image" class="inp mt-2 text-xs" placeholder="hoặc dán link ảnh https://…">
+          </div>
+        </section>
+
+        <!-- Nội dung theo ngôn ngữ -->
+        <section class="mt-5 rounded-2xl border border-white/10 bg-white/[.03]">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 px-3 pt-3">
+            <div id="langTabs" class="flex gap-1"></div>
+            <p class="text-xs text-slate-500 pb-3 pr-2">Ngôn ngữ nào để trống thì web tự dùng bản ngôn ngữ khác.</p>
+          </div>
+          <div class="p-5 space-y-4">
+            <div><label class="lbl" for="f_title">Tiêu đề</label><input id="f_title" class="inp text-lg font-bold"></div>
+            <div><label class="lbl" for="f_excerpt">Mô tả ngắn <span class="text-slate-500 font-normal">(hiện dưới tiêu đề trên thẻ bài, 1–2 câu)</span></label><textarea id="f_excerpt" rows="2" class="inp"></textarea></div>
+            <div><label class="lbl" for="f_seo">Tiêu đề SEO <span class="text-slate-500 font-normal">(không bắt buộc, hiện trên tab trình duyệt)</span></label><input id="f_seo" class="inp"></div>
+            <div>
+              <span class="lbl">Nội dung bài</span>
+              <div class="rounded-xl border border-white/12 bg-ink-950/60 focus-within:border-neon-500">
+                <div id="toolbar" class="sticky top-16 z-20 flex flex-wrap gap-0.5 border-b border-white/10 bg-ink-900/95 backdrop-blur rounded-t-xl p-1.5">
+                  <button type="button" class="tb" data-cmd="h2" title="Tiêu đề lớn">H2</button>
+                  <button type="button" class="tb" data-cmd="h3" title="Tiêu đề nhỏ">H3</button>
+                  <button type="button" class="tb" data-cmd="p" title="Đoạn văn thường">¶ Đoạn</button>
+                  <span class="w-px bg-white/10 mx-1"></span>
+                  <button type="button" class="tb" data-cmd="bold" title="In đậm"><b>B</b></button>
+                  <button type="button" class="tb" data-cmd="italic" title="In nghiêng"><i>I</i></button>
+                  <button type="button" class="tb" data-cmd="ul" title="Gạch đầu dòng">• Danh sách</button>
+                  <button type="button" class="tb" data-cmd="ol" title="Danh sách số">1. Danh sách</button>
+                  <span class="w-px bg-white/10 mx-1"></span>
+                  <button type="button" class="tb" data-cmd="tip" title="Khung mẹo nổi bật">💡 Khung mẹo</button>
+                  <button type="button" class="tb" data-cmd="link" title="Chèn link">🔗 Link</button>
+                  <button type="button" class="tb" data-cmd="image" title="Chèn ảnh">🖼 Ảnh</button>
+                  <button type="button" class="tb" data-cmd="table" title="Chèn bảng 3 cột">▦ Bảng</button>
+                  <button type="button" class="tb" data-cmd="clear" title="Xóa định dạng">⌫ Xóa định dạng</button>
+                  <span class="flex-1"></span>
+                  <button type="button" class="tb" data-cmd="html" title="Sửa mã HTML">&lt;/&gt; HTML</button>
+                </div>
+                <div id="f_body" class="ed px-5 py-4" contenteditable="true" data-placeholder="Viết hoặc dán nội dung bài vào đây (dán từ Google Docs / Word vẫn giữ tiêu đề, in đậm, danh sách, bảng)…"></div>
+                <textarea id="f_html" class="hidden w-full min-h-[420px] bg-transparent px-5 py-4 font-mono text-xs text-slate-200 outline-none"></textarea>
+                <input id="bodyImgFile" type="file" accept="image/*" class="hidden">
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Telegram -->
+        <section class="mt-5 rounded-2xl border border-sky-500/30 bg-sky-500/[.06] p-5">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div><h2 class="font-bold text-white">✈ Bản rút gọn cho kênh Telegram <span id="tgLang" class="text-sky-300"></span></h2>
+            <p class="text-xs text-slate-400 mt-1">Bấm "Tạo tự động" rồi sửa lại nếu cần. Link cuối bài dẫn về bài đầy đủ trên web.</p></div>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" id="tgGen" class="text-sm font-semibold bg-white/10 hover:bg-white/15 text-white px-4 py-2 rounded-lg">✨ Tạo tự động</button>
+              <button type="button" id="tgCopy" class="text-sm font-semibold bg-sky-500 hover:bg-sky-400 text-white px-4 py-2 rounded-lg">📋 Copy</button>
+              <a href="https://t.me/Omniaads_Official" target="_blank" rel="noopener" class="text-sm font-semibold border border-sky-400/50 text-sky-200 hover:bg-sky-500/10 px-4 py-2 rounded-lg">Mở kênh ↗</a>
+            </div>
+          </div>
+          <textarea id="f_tg" rows="12" class="inp mt-4 text-sm leading-relaxed"></textarea>
+        </section>
+      </form>
+    </main>
+  </div>
+</div>
+
+<!-- Thông báo -->
+<div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 hidden rounded-xl px-5 py-3 text-sm font-semibold shadow-2xl"></div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const LANGS = [['en', 'EN'], ['zh', '中文'], ['ru', 'RU']];
+  const CAT_NAME = { meta: 'Meta Ads', tiktok: 'TikTok Ads', google: 'Google Ads', pay: 'Payments', creative: 'Creatives' };
+  const BASE = (CONFIG.SUPABASE_URL || '').replace(/\/+$/, '');
+  const KEY = CONFIG.SUPABASE_ANON_KEY;
+  const SITE = (CONFIG.SITE_URL || '').replace(/\/?$/, '/');
+  const BUCKET = 'blog';
+  const SKEY = 'oa_admin_session';
+
+  /* ---------- tiện ích ---------- */
+  function toast(msg, kind) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.className = 'fixed bottom-5 left-1/2 -translate-x-1/2 z-50 rounded-xl px-5 py-3 text-sm font-semibold shadow-2xl ' +
+      (kind === 'err' ? 'bg-red-600 text-white' : 'bg-white text-ink-950');
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.add('hidden'), kind === 'err' ? 6000 : 2500);
+  }
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  function slugify(s) {
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd')
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+  }
+  const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  const store = {
+    get() { try { return JSON.parse(localStorage.getItem(SKEY) || 'null'); } catch (e) { return null; } },
+    set(v) { try { v ? localStorage.setItem(SKEY, JSON.stringify(v)) : localStorage.removeItem(SKEY); } catch (e) {} }
+  };
+
+  /* ---------- kết nối Supabase (không cần thư viện) ---------- */
+  const MAX_SESSION_HOURS = 12;   // tự đăng xuất sau 12 giờ kể từ lúc đăng nhập
+  let session = store.get();
+  if (session && (!session.since || Date.now() - session.since > MAX_SESSION_HOURS * 3600e3)) { session = null; store.set(null); }
+  async function authCall(grant, body) {
+    const r = await fetch(BASE + '/auth/v1/token?grant_type=' + grant, {
+      method: 'POST', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error_description || j.msg || j.message || ('Lỗi ' + r.status));
+    session = { access_token: j.access_token, refresh_token: j.refresh_token, email: (j.user && j.user.email) || body.email || (session && session.email),
+      since: grant === 'password' ? Date.now() : (session && session.since) || Date.now() };
+    store.set(session); return session;
+  }
+  async function req(path, opts, retried) {
+    opts = opts || {};
+    if (session && Date.now() - session.since > MAX_SESSION_HOURS * 3600e3) { logout(true); throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.'); }
+    const headers = Object.assign({ apikey: KEY }, opts.headers || {});
+    if (session) headers.Authorization = 'Bearer ' + session.access_token;
+    else if (/^eyJ/.test(KEY)) headers.Authorization = 'Bearer ' + KEY;   // khóa anon kiểu cũ
+    const r = await fetch(BASE + path, Object.assign({}, opts, { headers }));
+    if (r.status === 401 && session && session.refresh_token && !retried) {
+      try { await authCall('refresh_token', { refresh_token: session.refresh_token }); } catch (e) { logout(true); throw new Error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.'); }
+      return req(path, opts, true);
+    }
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}));
+      let m = j.message || j.msg || j.error || ('Lỗi ' + r.status);
+      if (r.status === 401 || r.status === 403 || /row-level security|permission/i.test(m)) m = 'Tài khoản này chưa có quyền đăng bài (chưa có trong bảng admins).';
+      throw new Error(m);
+    }
+    return r.status === 204 ? null : r.json().catch(() => null);
+  }
+  const api = {
+    list: () => req('/rest/v1/posts?select=*&order=date.desc,updated_at.desc'),
+    save: row => req('/rest/v1/posts?on_conflict=id', { method: 'POST', headers: { 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=representation' }, body: JSON.stringify(row) }),
+    unfeature: id => req('/rest/v1/posts?featured=eq.true&id=neq.' + encodeURIComponent(id), { method: 'PATCH', headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify({ featured: false }) }),
+    remove: id => req('/rest/v1/posts?id=eq.' + encodeURIComponent(id), { method: 'DELETE', headers: { Prefer: 'return=minimal' } }),
+    async upload(file) {
+      const blob = await shrinkImage(file);
+      const ext = blob.type === 'image/webp' ? 'webp' : (file.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = new Date().toISOString().slice(0, 7) + '/' + Date.now() + '-' + (slugify(file.name.replace(/\.[^.]+$/, '')) || 'anh') + '.' + ext;
+      await req('/storage/v1/object/' + BUCKET + '/' + path, { method: 'POST', headers: { 'Content-Type': blob.type || 'application/octet-stream', 'x-upsert': 'true' }, body: blob });
+      return BASE + '/storage/v1/object/public/' + BUCKET + '/' + path;
+    }
+  };
+  // thu nhỏ ảnh lớn cho web nhẹ (tối đa 1600px, WebP)
+  function shrinkImage(file) {
+    return new Promise(resolve => {
+      if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size < 400 * 1024) return resolve(file);
+      const img = new Image(), url = URL.createObjectURL(file);
+      img.onload = () => {
+        const s = Math.min(1, 1600 / img.width), c = document.createElement('canvas');
+        c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+        c.toBlob(b => resolve(b && b.size < file.size ? b : file), 'image/webp', 0.85);
+      };
+      img.onerror = () => resolve(file); img.src = url;
+    });
+  }
+
+  /* ---------- làm sạch nội dung dán vào ---------- */
+  const ALLOWED = { P: 1, H2: 1, H3: 1, B: 1, STRONG: 1, I: 1, EM: 1, UL: 1, OL: 1, LI: 1, A: 1, BR: 1, IMG: 1, TABLE: 1, THEAD: 1, TBODY: 1, TR: 1, TH: 1, TD: 1, DIV: 1 };
+  function clean(html) {
+    const doc = new DOMParser().parseFromString('<div>' + html + '</div>', 'text/html');
+    const out = document.createElement('div');
+    (function walk(src, dst) {
+      src.childNodes.forEach(n => {
+        if (n.nodeType === 3) { dst.appendChild(document.createTextNode(n.nodeValue)); return; }
+        if (n.nodeType !== 1) return;
+        let tag = n.tagName;
+        if (/^(SCRIPT|STYLE|META|LINK|TITLE|IFRAME|OBJECT|SVG)$/.test(tag)) return;
+        if (tag === 'H1') tag = 'H2';
+        if (/^H[4-6]$/.test(tag)) tag = 'H3';
+        // Google Docs: chữ đậm nằm trong <span style="font-weight:700">
+        const st = (n.getAttribute('style') || '');
+        if (tag === 'SPAN' && /font-weight:\s*(bold|[6-9]00)/.test(st)) tag = 'B';
+        if (tag === 'B' && /font-weight:\s*normal/.test(st)) tag = 'SPAN';
+        if (!ALLOWED[tag]) { walk(n, dst); return; }
+        let el;
+        if (tag === 'DIV') {
+          const cls = n.className || '';
+          if (/\btip\b/.test(cls)) { el = document.createElement('div'); el.className = 'tip'; }
+          else if (/\btable-wrap\b/.test(cls)) { el = document.createElement('div'); el.className = 'table-wrap'; }
+          else { el = document.createElement('p'); }
+        } else el = document.createElement(tag);
+        if (tag === 'A') { const h = n.getAttribute('href') || ''; if (/^(https?:|mailto:|#)/i.test(h)) { el.setAttribute('href', h); if (/^https?:/i.test(h)) { el.setAttribute('target', '_blank'); el.setAttribute('rel', 'noopener'); } } }
+        if (tag === 'IMG') { const s = n.getAttribute('src') || ''; if (!/^https?:/i.test(s)) return; el.setAttribute('src', s); el.setAttribute('alt', n.getAttribute('alt') || ''); el.setAttribute('loading', 'lazy'); }
+        dst.appendChild(el); walk(n, el);
+      });
+    })(doc.body.firstChild, out);
+    // bọc bảng để cuộn ngang được trên điện thoại
+    out.querySelectorAll('table').forEach(t => { if (!t.parentElement.classList.contains('table-wrap')) { const w = document.createElement('div'); w.className = 'table-wrap'; t.replaceWith(w); w.appendChild(t); } });
+    // bỏ đoạn rỗng & thẻ <b> rỗng
+    out.querySelectorAll('p,b,strong,i,em,h2,h3').forEach(e => { if (!e.textContent.trim() && !e.querySelector('img,br')) e.remove(); });
+    return out.innerHTML.replace(/ /g, ' ').trim();
+  }
+
+  /* ---------- trạng thái ---------- */
+  let posts = [], cur = null, isNew = false, lang = 'en', idTouched = false, dirty = false, htmlMode = false;
+  const LKEYS = ['title', 'excerpt', 'seoTitle', 'body'];
+  const titleOf = p => (p.en && p.en.title) || (p.zh && p.zh.title) || (p.ru && p.ru.title) || p.id;
+  function setDirty(v) { dirty = v; $('dirtyChip').classList.toggle('hidden', !v); }
+  window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  /* ---------- màn hình ---------- */
+  function show(view) { ['setupView', 'loginView', 'appView'].forEach(v => $(v).classList.toggle('hidden', v !== view)); }
+  async function start() {
+    if (!BASE || !KEY) return show('setupView');
+    if (!session) return show('loginView');
+    show('appView'); $('whoami').textContent = session.email || '';
+    $('siteLink').href = SITE; $('idPrefix').textContent = SITE.replace(/^https?:\/\//, '') + '#post/';
+    await loadList();
+  }
+  $('loginForm').addEventListener('submit', async e => {
+    e.preventDefault(); const b = $('loginBtn'), er = $('loginErr'); er.classList.add('hidden'); b.disabled = true; b.textContent = 'Đang đăng nhập…';
+    try { await authCall('password', { email: $('email').value.trim(), password: $('password').value }); $('password').value = ''; await start(); }
+    catch (x) { er.textContent = /invalid/i.test(x.message) ? 'Sai email hoặc mật khẩu.' : x.message; er.classList.remove('hidden'); }
+    b.disabled = false; b.textContent = 'Đăng nhập';
+  });
+  function logout(silent) {
+    if (!silent && dirty && !confirm('Bài đang sửa chưa lưu. Vẫn đăng xuất?')) return;
+    try { fetch(BASE + '/auth/v1/logout', { method: 'POST', headers: { apikey: KEY, Authorization: 'Bearer ' + (session && session.access_token) } }); } catch (e) {}
+    session = null; store.set(null); setDirty(false); cur = null; show('loginView');
+  }
+  $('logoutBtn').addEventListener('click', () => logout());
+
+  /* ---------- danh sách bài ---------- */
+  async function loadList(selectId) {
+    try { posts = (await api.list()) || []; } catch (x) { toast(x.message, 'err'); posts = []; }
+    renderList(); if (selectId) openPost(selectId);
+  }
+  function renderList() {
+    const q = slugify($('search').value);
+    const list = posts.filter(p => !q || slugify(titleOf(p) + ' ' + p.id).includes(q));
+    $('postList').innerHTML = list.length ? list.map(p =>
+      '<button type="button" data-id="' + esc(p.id) + '" class="w-full text-left rounded-xl border p-3 transition ' +
+      (cur && cur.id === p.id && !isNew ? 'border-neon-500 bg-neon-600/15' : 'border-white/10 bg-white/[.03] hover:border-white/25') + '">' +
+      '<div class="flex items-center gap-1.5 text-[11px] font-semibold">' +
+      (p.published ? '<span class="text-green-400">● Đã đăng</span>' : '<span class="text-amber-300">● Nháp</span>') +
+      (p.featured ? '<span class="text-neon-400">★ Nổi bật</span>' : '') + '<span class="text-slate-500">· ' + esc(p.date || '') + '</span></div>' +
+      '<p class="mt-1 text-sm font-semibold text-white leading-snug line-clamp-2">' + esc(titleOf(p)) + '</p>' +
+      '<p class="mt-1 text-[11px] text-slate-500">' + esc(CAT_NAME[p.cat] || p.cat) + ' · ' + LANGS.filter(l => p[l[0]] && p[l[0]].title).map(l => l[1]).join(' / ') + '</p></button>'
+    ).join('') : '<p class="text-sm text-slate-500 text-center py-8">Chưa có bài nào.</p>';
+  }
+  $('search').addEventListener('input', renderList);
+  $('postList').addEventListener('click', e => {
+    const b = e.target.closest('[data-id]'); if (!b) return;
+    if (dirty && !confirm('Bài đang sửa chưa lưu. Bỏ thay đổi và mở bài khác?')) return;
+    openPost(b.dataset.id);
+  });
+  $('newBtn').addEventListener('click', () => {
+    if (dirty && !confirm('Bài đang sửa chưa lưu. Bỏ thay đổi và viết bài mới?')) return;
+    cur = { id: '', date: today(), cat: 'meta', featured: false, image: '', min: null, published: false, en: {}, zh: {}, ru: {}, tg: {} };
+    isNew = true; idTouched = false; fillForm(); renderList(); $('f_title').focus();
+  });
+  function openPost(id) {
+    const p = posts.find(x => x.id === id); if (!p) return;
+    cur = JSON.parse(JSON.stringify(p)); ['en', 'zh', 'ru', 'tg'].forEach(k => { cur[k] = cur[k] || {}; });
+    isNew = false; idTouched = true; fillForm(); renderList();
+  }
+
+  /* ---------- form ---------- */
+  function fillForm() {
+    $('emptyState').classList.add('hidden'); $('editor').classList.remove('hidden');
+    $('f_id').value = cur.id; $('f_id').readOnly = !isNew; $('f_id').classList.toggle('opacity-60', !isNew);
+    $('f_date').value = cur.date || today(); $('f_cat').value = cur.cat || 'meta';
+    $('f_min').value = cur.min || ''; $('f_featured').checked = !!cur.featured; $('f_image').value = cur.image || '';
+    lang = (cur.en && cur.en.title) || isNew ? 'en' : ((cur.zh && cur.zh.title) ? 'zh' : 'ru');
+    setHtmlMode(false); loadLang(); renderCover(); renderStatus(); setDirty(false);
+  }
+  function renderStatus() {
+    const c = $('statusChip');
+    if (isNew) { c.textContent = 'Bài mới'; c.className = 'text-xs font-bold rounded-full px-3 py-1 bg-white/10 text-white'; }
+    else if (cur.published) { c.textContent = '● Đang hiện trên web'; c.className = 'text-xs font-bold rounded-full px-3 py-1 bg-green-500/15 text-green-300'; }
+    else { c.textContent = '● Bản nháp (chưa hiện trên web)'; c.className = 'text-xs font-bold rounded-full px-3 py-1 bg-amber-500/15 text-amber-200'; }
+    $('deleteBtn').classList.toggle('hidden', isNew); $('viewBtn').classList.toggle('hidden', isNew || !cur.published);
+    $('publishBtn').textContent = !isNew && cur.published ? '💾 Lưu & cập nhật web' : '🚀 Đăng lên web';
+  }
+  function renderTabs() {
+    $('langTabs').innerHTML = LANGS.map(([k, n]) => {
+      const has = cur[k] && cur[k].title && cur[k].body;
+      return '<button type="button" data-lang="' + k + '" class="px-4 py-2.5 text-sm font-semibold rounded-t-lg border-b-2 ' +
+        (k === lang ? 'border-neon-500 text-white bg-white/[.04]' : 'border-transparent text-slate-400 hover:text-white') + '">' + n +
+        ' <span class="' + (has ? 'text-green-400' : 'text-slate-600') + '">' + (has ? '✓' : '○') + '</span></button>';
+    }).join('');
+    $('tgLang').textContent = '(' + LANGS.find(l => l[0] === lang)[1] + ')';
+  }
+  function loadLang() {
+    const d = cur[lang] || {};
+    $('f_title').value = d.title || ''; $('f_excerpt').value = d.excerpt || ''; $('f_seo').value = d.seoTitle || '';
+    $('f_body').innerHTML = d.body || ''; $('f_html').value = d.body || '';
+    $('f_tg').value = (cur.tg && cur.tg[lang]) || '';
+    renderTabs();
+  }
+  function saveLang() {
+    if (htmlMode) $('f_body').innerHTML = clean($('f_html').value);
+    const d = {
+      title: $('f_title').value.trim(), excerpt: $('f_excerpt').value.trim(),
+      seoTitle: $('f_seo').value.trim(), body: clean($('f_body').innerHTML)
+    };
+    LKEYS.forEach(k => { if (!d[k]) delete d[k]; });
+    cur[lang] = d; cur.tg = cur.tg || {};
+    const tg = $('f_tg').value.trim(); if (tg) cur.tg[lang] = tg; else delete cur.tg[lang];
+  }
+  $('langTabs').addEventListener('click', e => {
+    const b = e.target.closest('[data-lang]'); if (!b || b.dataset.lang === lang) return;
+    saveLang(); lang = b.dataset.lang; setHtmlMode(false); loadLang();
+  });
+  ['f_title', 'f_excerpt', 'f_seo', 'f_date', 'f_cat', 'f_min', 'f_featured', 'f_image', 'f_tg', 'f_html'].forEach(id =>
+    $(id).addEventListener('input', () => setDirty(true)));
+  $('f_body').addEventListener('input', () => setDirty(true));
+  $('f_title').addEventListener('input', () => {   // tự tạo link từ tiêu đề (bỏ qua tiêu đề chữ Hán/Nga)
+    if (!isNew || idTouched) return;
+    const sl = slugify($('f_title').value);
+    if (sl && (lang === 'en' || !$('f_id').value)) $('f_id').value = sl;
+  });
+  function ensureId() {
+    let id = $('f_id').value.trim().replace(/-+$/, '');
+    if (!id && isNew) id = 'bai-' + ($('f_date').value || today()).replace(/-/g, '') + '-' + Math.random().toString(36).slice(2, 6);
+    $('f_id').value = id; return id;
+  }
+  $('f_id').addEventListener('input', () => {
+    idTouched = true;
+    const v = $('f_id').value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd')
+      .replace(/[^a-z0-9-]+/g, '-').replace(/-{2,}/g, '-').replace(/^-/, '');
+    if (v !== $('f_id').value) $('f_id').value = v;
+  });
+  $('f_image').addEventListener('input', renderCover);
+
+  /* ---------- ảnh bìa ---------- */
+  function renderCover() {
+    const v = $('f_image').value.trim(), box = $('coverBox');
+    if (!v) box.innerHTML = 'Chưa có ảnh bìa<br>(web sẽ hiện nền màu tím)';
+    else if (v[0] === '@') box.innerHTML = 'Đang dùng ảnh có sẵn trong trang web<br><b class="text-slate-300">' + esc(v) + '</b>';
+    else box.innerHTML = '<img src="' + esc(v) + '" alt="" class="absolute inset-0 w-full h-full object-cover">';
+  }
+  $('coverFile').addEventListener('change', async e => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    $('coverBox').innerHTML = 'Đang tải ảnh lên…';
+    try { $('f_image').value = await api.upload(f); setDirty(true); toast('Đã tải ảnh bìa'); } catch (x) { toast('Không tải được ảnh: ' + x.message, 'err'); }
+    renderCover();
+  });
+  $('coverClear').addEventListener('click', () => { $('f_image').value = ''; setDirty(true); renderCover(); });
+
+  /* ---------- trình soạn thảo ---------- */
+  const ed = $('f_body');
+  function exec(c, v) { ed.focus(); document.execCommand(c, false, v); setDirty(true); }
+  function insertHTML(h) { ed.focus(); document.execCommand('insertHTML', false, h); setDirty(true); }
+  function setHtmlMode(on) {
+    htmlMode = on;
+    if (on) $('f_html').value = clean(ed.innerHTML).replace(/(<\/(p|h2|h3|ul|ol|li|div|tr|table|thead|tbody)>)/g, '$1\n');
+    else ed.innerHTML = clean($('f_html').value || ed.innerHTML);
+    ed.classList.toggle('hidden', on); $('f_html').classList.toggle('hidden', !on);
+    document.querySelectorAll('#toolbar [data-cmd]').forEach(b => { if (b.dataset.cmd !== 'html') b.disabled = on; b.classList.toggle('opacity-40', on && b.dataset.cmd !== 'html'); });
+    document.querySelector('#toolbar [data-cmd=html]').classList.toggle('bg-neon-600', on);
+  }
+  $('toolbar').addEventListener('mousedown', e => { if (e.target.closest('[data-cmd]')) e.preventDefault(); }); // giữ vùng chọn
+  $('toolbar').addEventListener('click', e => {
+    const b = e.target.closest('[data-cmd]'); if (!b || b.disabled) return;
+    const c = b.dataset.cmd;
+    if (c === 'html') return setHtmlMode(!htmlMode);
+    if (c === 'h2' || c === 'h3' || c === 'p') return exec('formatBlock', '<' + c + '>');
+    if (c === 'bold' || c === 'italic') return exec(c);
+    if (c === 'ul') return exec('insertUnorderedList');
+    if (c === 'ol') return exec('insertOrderedList');
+    if (c === 'clear') { exec('removeFormat'); return exec('formatBlock', '<p>'); }
+    if (c === 'link') { const u = prompt('Dán link (https://…)'); if (u && /^https?:\/\//i.test(u.trim())) exec('createLink', u.trim()); return; }
+    if (c === 'tip') { const t = String(window.getSelection() || '').trim() || 'Viết mẹo ở đây'; return insertHTML('<div class="tip">💡 ' + esc(t) + '</div><p><br></p>'); }
+    if (c === 'table') return insertHTML('<div class="table-wrap"><table><thead><tr><th>Cột 1</th><th>Cột 2</th><th>Cột 3</th></tr></thead><tbody><tr><td>…</td><td>…</td><td>…</td></tr><tr><td>…</td><td>…</td><td>…</td></tr></tbody></table></div><p><br></p>');
+    if (c === 'image') { saveRange(); return $('bodyImgFile').click(); }
+  });
+  let range = null;
+  function saveRange() { const s = window.getSelection(); range = s.rangeCount && ed.contains(s.anchorNode) ? s.getRangeAt(0).cloneRange() : null; }
+  $('bodyImgFile').addEventListener('change', async e => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    toast('Đang tải ảnh lên…');
+    try {
+      const url = await api.upload(f);
+      ed.focus(); if (range) { const s = window.getSelection(); s.removeAllRanges(); s.addRange(range); }
+      insertHTML('<img src="' + esc(url) + '" alt="" loading="lazy"><p><br></p>'); toast('Đã chèn ảnh');
+    } catch (x) { toast('Không tải được ảnh: ' + x.message, 'err'); }
+  });
+  ed.addEventListener('paste', e => {
+    const cd = e.clipboardData; if (!cd) return;
+    const img = [...cd.files || []].find(f => /^image\//.test(f.type));
+    if (img) { e.preventDefault(); saveRange(); toast('Đang tải ảnh lên…'); api.upload(img).then(u => { if (range) { const s = window.getSelection(); s.removeAllRanges(); s.addRange(range); } insertHTML('<img src="' + esc(u) + '" alt="" loading="lazy">'); toast('Đã chèn ảnh'); }, x => toast('Không tải được ảnh: ' + x.message, 'err')); return; }
+    const html = cd.getData('text/html');
+    e.preventDefault();
+    if (html) insertHTML(clean(html));
+    else insertHTML(cd.getData('text/plain').split(/\n{2,}/).map(t => '<p>' + esc(t).replace(/\n/g, '<br>') + '</p>').join(''));
+  });
+
+  /* ---------- Telegram ---------- */
+  const TG = {
+    en: { read: 'Read the full article', cta: 'Need stable agency ad accounts?' },
+    zh: { read: '阅读完整文章', cta: '需要稳定的代理广告账户？' },
+    ru: { read: 'Читать полную статью', cta: 'Нужны стабильные агентские аккаунты?' }
+  };
+  $('tgGen').addEventListener('click', () => {
+    saveLang();
+    const d = cur[lang] || {}, id = ensureId();
+    if (!d.title) return toast('Hãy nhập tiêu đề trước', 'err');
+    const tmp = document.createElement('div'); tmp.innerHTML = d.body || '';
+    const clean = t => t.replace(/\s+/g, ' ').trim();
+    const cut = (t, n) => t.length <= n ? t : t.slice(0, n).replace(/\s+\S*$/, '') + '…';
+    const firstSentence = t => cut((t.match(/^.+?[.!?。！？](\s|$)/) || [t])[0].trim(), 140);
+    const skip = /^(faq|常见问题|заключение|总结|conclusion|kết luận)$/i;
+    const paras = [...tmp.querySelectorAll('p')].filter(p => !p.closest('li,td,th,.tip')).map(p => clean(p.textContent)).filter(t => t.length > 30);
+    // 1) đoạn mở đầu: mô tả ngắn, nếu trống thì lấy đoạn đầu bài
+    const intro = d.excerpt ? clean(d.excerpt) : (paras[0] ? cut(paras[0], 320) : '');
+    // 2) ý chính: tiêu đề nhỏ → gạch đầu dòng → câu đầu các đoạn tiếp theo
+    let points = [...tmp.querySelectorAll('h2,h3')].map(h => clean(h.textContent)).filter(t => t && !skip.test(t));
+    if (points.length < 2) points = [...tmp.querySelectorAll('li')].map(li => cut(clean(li.textContent), 140)).filter(Boolean);
+    if (points.length < 2) points = paras.slice(d.excerpt ? 0 : 1).map(firstSentence).filter(t => t.length > 20);
+    points = points.slice(0, 5);
+    const tip = tmp.querySelector('.tip');
+    const txt = '🎯 ' + d.title + '\n\n' + (intro ? intro + '\n\n' : '') +
+      (points.length ? points.map(h => '✅ ' + h).join('\n') + '\n\n' : '') +
+      (tip ? clean(tip.textContent) + '\n\n' : '') +
+      '📖 ' + TG[lang].read + ':\n👉 ' + SITE + '#post/' + (id || '…') + '\n\n💬 ' + TG[lang].cta + ' @Omnia_Media';
+    if ($('f_tg').value.trim() && !confirm('Thay bản rút gọn hiện tại bằng bản tạo tự động?')) return;
+    $('f_tg').value = txt; setDirty(true);
+  });
+  $('tgCopy').addEventListener('click', async () => {
+    const t = $('f_tg').value; if (!t.trim()) return toast('Chưa có nội dung để copy', 'err');
+    try { await navigator.clipboard.writeText(t); } catch (e) { $('f_tg').select(); document.execCommand('copy'); }
+    toast('Đã copy, dán vào kênh Telegram nhé');
+  });
+
+  /* ---------- lưu / đăng / xóa ---------- */
+  async function persist(publish) {
+    saveLang();
+    const id = ensureId();
+    if (!id) return toast('Thiếu đường dẫn bài (link)', 'err');
+    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(id)) return toast('Đường dẫn chỉ gồm chữ thường không dấu, số và dấu gạch ngang', 'err');
+    if (isNew && posts.some(p => p.id === id)) return toast('Đường dẫn này đã có bài khác dùng, hãy đổi tên', 'err');
+    const filled = LANGS.filter(([k]) => cur[k] && cur[k].title && cur[k].body);
+    if (!filled.length) return toast('Cần ít nhất 1 ngôn ngữ có tiêu đề và nội dung', 'err');
+    const half = LANGS.filter(([k]) => cur[k] && (cur[k].title || cur[k].body) && !(cur[k].title && cur[k].body));
+    if (half.length) return toast('Bản ' + half.map(l => l[1]).join(', ') + ' còn thiếu tiêu đề hoặc nội dung', 'err');
+    const row = {
+      id, date: $('f_date').value || today(), cat: $('f_cat').value, featured: $('f_featured').checked,
+      image: $('f_image').value.trim(), min: parseInt($('f_min').value, 10) || null, published: publish,
+      en: cur.en || {}, zh: cur.zh || {}, ru: cur.ru || {}, tg: cur.tg || {}, updated_at: new Date().toISOString()
+    };
+    const btns = ['draftBtn', 'publishBtn'].map($); btns.forEach(b => b.disabled = true);
+    try {
+      await api.save(row);
+      if (row.featured) await api.unfeature(id);
+      setDirty(false); isNew = false;
+      toast(publish ? '✅ Đã đăng lên web' : 'Đã lưu nháp');
+      await loadList(id);
+    } catch (x) { toast('Chưa lưu được: ' + x.message, 'err'); }
+    btns.forEach(b => b.disabled = false);
+  }
+  $('draftBtn').addEventListener('click', () => persist(false));
+  $('publishBtn').addEventListener('click', () => persist(true));
+  $('deleteBtn').addEventListener('click', async () => {
+    if (!cur || isNew || !confirm('Xóa hẳn bài "' + titleOf(cur) + '"? Không khôi phục được.')) return;
+    try { await api.remove(cur.id); setDirty(false); cur = null; toast('Đã xóa bài'); $('editor').classList.add('hidden'); $('emptyState').classList.remove('hidden'); await loadList(); }
+    catch (x) { toast('Chưa xóa được: ' + x.message, 'err'); }
+  });
+  $('viewBtn').addEventListener('click', () => { if (cur) window.open(SITE + '#post/' + cur.id, '_blank', 'noopener'); });
+
+  start();
+})();
+</script>
+</body>
+</html>
